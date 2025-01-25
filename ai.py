@@ -43,31 +43,31 @@ def check_options(pieces, locations, color, opponent_pieces, opponent_locations,
                 for i in range(1, BOARD_SIZE):
                     new_location = (location[0] + dx * i, location[1] + dy * i)
                     if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
-                        if new_location in opponent_locations or new_location in locations:
-                            if new_location in opponent_locations:
-                                valid_moves.append((piece, new_location))
-                            break
+                        if new_location in locations:
+                            break  # Stop if we hit our own piece
                         valid_moves.append((piece, new_location))
+                        if new_location in opponent_locations:
+                            break  # Stop if we hit an opponent piece
                     else:
                         break
         elif piece == 'knight':
             for dx, dy in [(2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]:
                 new_location = (location[0] + dx, location[1] + dy)
                 if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
-                    if new_location not in locations:
+                    if new_location not in locations:  # Can move to empty square
                         valid_moves.append((piece, new_location))
-                    elif new_location in opponent_locations:
+                    elif new_location in opponent_locations:  # Can capture opponent piece
                         valid_moves.append((piece, new_location))
         elif piece == 'bishop':
             for dx, dy in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
                 for i in range(1, BOARD_SIZE):
                     new_location = (location[0] + dx * i, location[1] + dy * i)
                     if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
-                        if new_location in opponent_locations or new_location in locations:
-                            if new_location in opponent_locations:
-                                valid_moves.append((piece, new_location))
-                            break
+                        if new_location in locations:
+                            break  # Stop if we hit our own piece
                         valid_moves.append((piece, new_location))
+                        if new_location in opponent_locations:
+                            break  # Stop if we hit an opponent piece
                     else:
                         break
         elif piece == 'queen':
@@ -75,20 +75,18 @@ def check_options(pieces, locations, color, opponent_pieces, opponent_locations,
                 for i in range(1, BOARD_SIZE):
                     new_location = (location[0] + dx * i, location[1] + dy * i)
                     if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
-                        if new_location in opponent_locations or new_location in locations:
-                            if new_location in opponent_locations:
-                                valid_moves.append((piece, new_location))
-                            break
+                        if new_location in locations:
+                            break  # Stop if we hit our own piece
                         valid_moves.append((piece, new_location))
+                        if new_location in opponent_locations:
+                            break  # Stop if we hit an opponent piece
                     else:
                         break
         elif piece == 'king':
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
                 new_location = (location[0] + dx, location[1] + dy)
                 if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
-                    if new_location not in locations:
-                        valid_moves.append((piece, new_location))
-                    elif new_location in opponent_locations:
+                    if new_location not in locations or new_location in opponent_locations:
                         valid_moves.append((piece, new_location))
             # Castling
             if color == 'white' and not king_moved[0]:
@@ -107,10 +105,14 @@ def execute_move(pieces, locations, move, color, king_moved, rook_moved):
     piece, new_location = move
     current_location = locations[pieces.index(piece)]
     index = locations.index(current_location)
+    
+    # Update to the new location
     locations[index] = new_location
+
     # Handle pawn promotion
     if piece == 'pawn' and (new_location[1] == 0 or new_location[1] == 7):
         pieces[index] = 'queen'  # Promote to queen for simplicity
+
     # Handle castling
     if piece == 'king':
         if abs(new_location[0] - current_location[0]) == 2:
@@ -135,7 +137,40 @@ def execute_move(pieces, locations, move, color, king_moved, rook_moved):
                 rook_moved[1][0] = True
             elif current_location == (7, 0):
                 rook_moved[1][1] = True
+
     return pieces, locations
+
+def evaluate_board(pieces, locations, color):
+    piece_values = {
+        'pawn': 1,
+        'knight': 3,
+        'bishop': 3,
+        'rook': 5,
+        'queen': 9,
+        'king': 100
+    }
+    
+    # Positional values for pieces
+    positional_values = {
+        'pawn': [0, 0, 1, 1, 1, 1, 1, 0],
+        'knight': [-5, -4, -3, -3, -3, -3, -4, -5],
+        'bishop': [-2, -1, -1, 0, 0, -1, -1, -2],
+        'rook': [0, 0, 0, 0, 0, 0, 0,  0],
+        'queen': [-2, -1, 0, 0, 0, 0, -1, -2],
+        'king': [0, 0, 0, 0, 0, 0, 0, 0]
+    }
+    
+    value = 0
+    for piece, location in zip(pieces, locations):
+        piece_value = piece_values.get(piece, 0)
+        position_value = positional_values.get(piece, [0]*8)[location[1]]
+        
+        if color == 'black':
+            value += piece_value + position_value
+        else:
+            value -= piece_value + position_value
+            
+    return value
 
 def minimax(pieces, locations, color, opponent_pieces, opponent_locations, king_moved, rook_moved, depth, alpha, beta, maximizing_player):
     if depth == 0 or is_checkmate(pieces, locations, color, opponent_pieces, opponent_locations):
@@ -165,7 +200,7 @@ def minimax(pieces, locations, color, opponent_pieces, opponent_locations, king_
 def pick_best_move(pieces, locations, color, opponent_pieces, opponent_locations, king_moved, rook_moved):
     best_move = None
     best_value = -float('inf') if color == 'black' else float('inf')
-    depth = 3  # Depth of the minimax algorithm
+    depth = 2  # Depth of the minimax algorithm
 
     for move in check_options(pieces, locations, color, opponent_pieces, opponent_locations, king_moved, rook_moved):
         new_pieces, new_locations = execute_move(pieces[:], locations[:], move, color, king_moved[:], rook_moved[:])
@@ -175,23 +210,3 @@ def pick_best_move(pieces, locations, color, opponent_pieces, opponent_locations
             best_move = move
 
     return best_move
-     
-
-
-def evaluate_board(pieces, locations, color):
-    piece_values = {
-        'pawn': 1,
-        'knight': 3,
-        'bishop': 3,
-        'rook': 5,
-        'queen': 9,
-        'king': 100
-    }
-    value = 0
-    for piece, location in zip(pieces, locations):
-        piece_value = piece_values.get(piece, 0)
-        if color == 'black':
-            value += piece_value
-        else:
-            value -= piece_value
-    return value
