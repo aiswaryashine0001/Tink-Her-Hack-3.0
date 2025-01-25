@@ -1,305 +1,163 @@
-# Importing Modules
+import random
 import pygame
-import requests
-import rembg
-from io import BytesIO
 
-# Initialising pygame module
+# Initialize Pygame
 pygame.init()
 
-# Setting Width and height of the Chess Game screen
-WIDTH = 1000
-HEIGHT = 900
+# Constants
+BOARD_SIZE = 8
+TILE_SIZE = 75
+SCREEN_SIZE = BOARD_SIZE * TILE_SIZE
+WHITE = (255, 255, 255)
+GREY = (192, 192, 192)
+RED = (255, 0, 0)
 
-screen = pygame.display.set_mode([WIDTH, HEIGHT])
-pygame.display.set_caption('Chess Game')
+# Set up the display
+screen = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE))
+pygame.display.set_caption("Chess Game")
 
-font = pygame.font.Font('freesansbold.ttf', 20)
-medium_font = pygame.font.Font('freesansbold.ttf', 40)
-big_font = pygame.font.Font('freesansbold.ttf', 50)
+# Load and resize chess piece images
+piece_images = {
+    'black_pawn': pygame.transform.scale(pygame.image.load('images/b_pawn.png'), (TILE_SIZE, TILE_SIZE)),
+    'black_rook': pygame.transform.scale(pygame.image.load('images/b_rook.png'), (TILE_SIZE, TILE_SIZE)),
+    'black_knight': pygame.transform.scale(pygame.image.load('images/b_knight.png'), (TILE_SIZE, TILE_SIZE)),
+    'black_bishop': pygame.transform.scale(pygame.image.load('images/b_bishop.png'), (TILE_SIZE, TILE_SIZE)),
+    'black_queen': pygame.transform.scale(pygame.image.load('images/b_queen.png'), (TILE_SIZE, TILE_SIZE)),
+    'black_king': pygame.transform.scale(pygame.image.load('images/b_king.png'), (TILE_SIZE, TILE_SIZE)),
+    'white_pawn': pygame.transform.scale(pygame.image.load('images/w_pawn.png'), (TILE_SIZE, TILE_SIZE)),
+    'white_rook': pygame.transform.scale(pygame.image.load('images/w_rook.png'), (TILE_SIZE, TILE_SIZE)),
+    'white_knight': pygame.transform.scale(pygame.image.load('images/w_knight.png'), (TILE_SIZE, TILE_SIZE)),
+    'white_bishop': pygame.transform.scale(pygame.image.load('images/w_bishop.png'), (TILE_SIZE, TILE_SIZE)),
+    'white_queen': pygame.transform.scale(pygame.image.load('images/w_queen.png'), (TILE_SIZE, TILE_SIZE)),
+    'white_king': pygame.transform.scale(pygame.image.load('images/w_king.png'), (TILE_SIZE, TILE_SIZE)),
+}
 
-timer = pygame.time.Clock()
-fps = 60
+# Initialize piece locations
+black_locations = [(0, 7), (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7),
+                   (0, 6), (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6)]
+white_locations = [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1),
+                   (0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0)]
 
-# ChessBoard class
-class ChessBoard:
-    def __init__(self):
-        self.board = [
-            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-            ['.', '.', '.', '.', '.', '.', '.', '.'],
-            ['.', '.', '.', '.', '.', '.', '.', '.'],
-            ['.', '.', '.', '.', '.', '.', '.', '.'],
-            ['.', '.', '.', '.', '.', '.', '.', '.'],
-            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
-        ]
-        self.king_positions = {'K': (7, 4), 'k': (0, 4)}
+# Initialize piece types
+black_pieces = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'] + ['pawn'] * 8
+white_pieces = ['pawn'] * 8 + ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook']
 
-    def is_check(self, color):
-        king_pos = self.king_positions['K'] if color == 'white' else self.king_positions['k']
-        for row in range(8):
-            for col in range(8):
-                piece = self.board[row][col]
-                if piece != '.' and (piece.islower() if color == 'white' else piece.isupper()):
-                    if self.is_threat(king_pos, (row, col), piece):
-                        return True
-        return False
+# Initialize captured pieces lists
+captured_pieces_white = []
+captured_pieces_black = []
 
-    def is_threat(self, king_pos, attacker_pos, piece):
-        directions = {
-            'r': [(1, 0), (-1, 0), (0, 1), (0, -1)],
-            'b': [(1, 1), (-1, -1), (1, -1), (-1, 1)],
-            'q': [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)],
-            'n': [(2, 1), (-2, 1), (2, -1), (-2, -1), (1, 2), (-1, 2), (1, -2), (-1, -2)],
-            'p': [(-1, -1), (-1, 1)] if piece.isupper() else [(1, -1), (1, 1)]
-        }
-        # For a knight (n), check if the king is one move away
-        if piece.lower() == 'n':
-            row_diff = abs(king_pos[0] - attacker_pos[0])
-            col_diff = abs(king_pos[1] - attacker_pos[1])
-            return row_diff == 2 and col_diff == 1 or row_diff == 1 and col_diff == 2
-
-        for direction in directions.get(piece.lower(), []):
-            r, c = attacker_pos
-            while 0 <= r < 8 and 0 <= c < 8:
-                r, c = r + direction[0], c + direction[1]
-                if 0 <= r < 8 and 0 <= c < 8:
-                    if self.board[r][c] != '.':
-                        if (r, c) == king_pos:
-                            return True
-                        break
-        return False
-
-    def is_checkmate(self, color):
-        if not self.is_check(color):
-            return False
-
-        king_pos = self.king_positions['K'] if color == 'white' else self.king_positions['k']
-        for row in range(8):
-            for col in range(8):
-                if (self.board[row][col] == 'K' if color == 'white' else self.board[row][col] == 'k'):
-                    for dx in [-1, 0, 1]:
-                        for dy in [-1, 0, 1]:
-                            new_row, new_col = row + dx, col + dy
-                            if 0 <= new_row < 8 and 0 <= new_col < 8:
-                                if self.board[new_row][new_col] == '.':
-                                    self.board[row][col] = '.'
-                                    self.board[new_row][new_col] = 'K' if color == 'white' else 'k'
-                                    if not self.is_check(color):
-                                        return False
-                                    self.board[new_row][new_col] = '.'
-                                    self.board[row][col] = 'K' if color == 'white' else 'k'
-        return True
-
-# Initialize the chess board
-chess_board = ChessBoard()
-
-# url for chess pieces images
-image_urls = ['https://media.geeksforgeeks.org/wp-content/uploads/20240302025946/black_queen.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025948/black_king.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025345/black_rook.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025951/black_bishop.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025947/black_knight.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025945/black_pawn.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025952/white_queen.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025943/white_king.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025949/white_rook.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025944/white_bishop.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025325/white_knight.png',
-              'https://media.geeksforgeeks.org/wp-content/uploads/20240302025953/white_pawn.png']
-
-# load in game piece images (queen, king, rook, bishop, knight, pawn) x 2
-black_queen = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[0]).content)))
-black_queen = pygame.transform.scale(black_queen, (80, 80))
-black_queen_small = pygame.transform.scale(black_queen, (45, 45))
-black_king = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[1]).content)))
-black_king = pygame.transform.scale(black_king, (80, 80))
-black_king_small = pygame.transform.scale(black_king, (45, 45))
-black_rook = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[2]).content)))
-black_rook = pygame.transform.scale(black_rook, (80, 80))
-black_rook_small = pygame.transform.scale(black_rook, (45, 45))
-black_bishop = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[3]).content)))
-black_bishop = pygame.transform.scale(black_bishop, (80, 80))
-black_bishop_small = pygame.transform.scale(black_bishop, (45, 45))
-black_knight = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[4]).content)))
-black_knight = pygame.transform.scale(black_knight, (80, 80))
-black_knight_small = pygame.transform.scale(black_knight, (45, 45))
-black_pawn = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[5]).content)))
-black_pawn = pygame.transform.scale(black_pawn, (65, 65))
-black_pawn_small = pygame.transform.scale(black_pawn, (45, 45))
-white_queen = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[6]).content)))
-white_queen = pygame.transform.scale(white_queen, (80, 80))
-white_queen_small = pygame.transform.scale(white_queen, (45, 45))
-white_king = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[7]).content)))
-white_king = pygame.transform.scale(white_king, (80, 80))
-white_king_small = pygame.transform.scale(white_king, (45, 45))
-white_rook = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[8]).content)))
-white_rook = pygame.transform.scale(white_rook, (80, 80))
-white_rook_small = pygame.transform.scale(white_rook, (45, 45))
-white_bishop = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[9]).content)))
-white_bishop = pygame.transform.scale(white_bishop, (80, 80))
-white_bishop_small = pygame.transform.scale(white_bishop, (45, 45))
-white_knight = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[10]).content)))
-white_knight = pygame.transform.scale(white_knight, (80, 80))
-white_knight_small = pygame.transform.scale(white_knight, (45, 45))
-white_pawn = pygame.image.load(
-    BytesIO(rembg.remove(requests.get(image_urls[11]).content)))
-white_pawn = pygame.transform.scale(white_pawn, (65, 65))
-white_pawn_small = pygame.transform.scale(white_pawn, (45, 45))
-
-white_images = [white_pawn, white_queen, white_king,
-                white_knight, white_rook, white_bishop]
-small_white_images = [white_pawn_small, white_queen_small, white_king_small, white_knight_small,
-                      white_rook_small, white_bishop_small]
-
-black_images = [black_pawn, black_queen, black_king,
-                black_knight, black_rook, black_bishop]
-small_black_images = [black_pawn_small, black_queen_small, black_king_small,
-                      black_knight_small, black_rook_small, black_bishop_small]
-piece_list = ['p', 'r', 'n', 'b', 'q', 'k']
-
-
-# check variables/ flashing counter
-counter = 0
-winner = ''
+# Initialize game state variables
+turn_step = 0
+selection = 100
+valid_moves = []
+winner = ''  # Initialize the winner variable
 game_over = False
-turn_step = 0  # Initialize turn_step
 
-# draw main game board
-def draw_board():
-    for i in range(32):
-        column = i % 4
-        row = i // 4
-        if row % 2 == 0:
-            pygame.draw.rect(screen, 'light gray', [
-                             600 - (column * 200), row * 100, 100, 100])
-        else:
-            pygame.draw.rect(screen, 'light gray', [
-                             700 - (column * 200), row * 100, 100, 100])
-        pygame.draw.rect(screen, 'gray', [0, 800, WIDTH, 100])
-        pygame.draw.rect(screen, 'gold', [0, 800, WIDTH, 100], 5)
-        pygame.draw.rect(screen, 'gold', [800, 0, 200, HEIGHT], 5)
-        status_text = ['White: Select a Piece to Move!', 'White: Select a Destination!',
-                       'Black: Select a Piece to Move!', 'Black: Select a Destination!']
-        screen.blit(big_font.render(
-            status_text[turn_step], True, 'black'), (20, 820))
-        for i in range(9):
-            pygame.draw.line(screen, 'black', (0, 100 * i), (800, 100 * i), 2)
-            pygame.draw.line(screen, 'black', (100 * i, 0), (100 * i, 800), 2)
-        screen.blit(medium_font.render('FORFEIT', True, 'black'), (810, 830))
+def check_options(pieces, locations, color):
+    # Placeholder implementation: return a list of random valid moves
+    # This should be replaced with actual logic to determine valid moves
+    valid_moves = []
+    for piece, location in zip(pieces, locations):
+        # Example: add some dummy moves for each piece
+        valid_moves.append((piece, (location[0] + 1, location[1] + 1)))
+    return valid_moves
 
-# draw pieces onto board
-def draw_pieces():
-    for row in range(8):
-        for col in range(8):
-            piece = chess_board.board[row][col]
-            if piece != '.':
-                if piece.isupper():
-                    index = piece_list.index(piece.lower())
-                    screen.blit(white_images[index], (col * 100 + 10, row * 100 + 10))
-                else:
-                    index = piece_list.index(piece)
-                    screen.blit(black_images[index], (col * 100 + 10, row * 100 + 10))
+def pick_random_move(valid_moves):
+    if valid_moves:
+        return random.choice(valid_moves)
+    return None
 
-# draw valid moves on screen
-def draw_valid(moves):
-    if turn_step < 2:
-        color = 'red'
-    else:
-        color = 'blue'
-    for move in moves:
-        pygame.draw.circle(screen, color, (move[1] * 100 + 50, move[0] * 100 + 50), 5)
+def get_click_coords(event):
+    x, y = event.pos
+    # Convert the x, y coordinates to the grid coordinates
+    grid_x = x // TILE_SIZE
+    grid_y = y // TILE_SIZE
+    return (grid_x, grid_y)
 
-# draw captured pieces on side of screen
-def draw_captured():
-    for i in range(len(captured_pieces_white)):
-        captured_piece = captured_pieces_white[i]
-        index = piece_list.index(captured_piece)
-        screen.blit(small_black_images[index], (825, 5 + 50 * i))
-    for i in range(len(captured_pieces_black)):
-        captured_piece = captured_pieces_black[i]
-        index = piece_list.index(captured_piece)
-        screen.blit(small_white_images[index], (925, 5 + 50 * i))
-
-# draw a flashing square around king if in check
-def draw_check():
-    if turn_step < 2:
-        if chess_board.is_check('white'):
-            king_pos = chess_board.king_positions['K']
-            if counter < 15:
-                pygame.draw.rect(screen, 'dark red', [king_pos[1] * 100 + 1, king_pos[0] * 100 + 1, 100, 100], 5)
-    else:
-        if chess_board.is_check('black'):
-            king_pos = chess_board.king_positions['k']
-            if counter < 15:
-                pygame.draw.rect(screen, 'dark blue', [king_pos[1] * 100 + 1, king_pos[0] * 100 + 1, 100, 100], 5)
+def execute_move(pieces, locations, move):
+    piece, new_location = move
+    pieces.remove(piece)
+    pieces.append(new_location)
+    locations.remove(piece)
+    locations.append(new_location)
+    return pieces, locations
 
 def draw_game_over():
-    pygame.draw.rect(screen, 'black', [200, 200, 400, 70])
-    screen.blit(font.render(
-        f'{winner} won the game!', True, 'white'), (210, 210))
-    screen.blit(font.render(f'Press ENTER to Restart!',
-                            True, 'white'), (210, 240))
+    font = pygame.font.Font(None, 74)
+    text = font.render("Game Over", True, RED)
+    text_rect = text.get_rect(center=(SCREEN_SIZE // 2, SCREEN_SIZE // 2))
+    screen.blit(text, text_rect)
+    pygame.display.flip()
 
-# main game loop
-run = True
-while run:
-    timer.tick(fps)
-    if counter < 30:
-        counter += 1
-    else:
-        counter = 0
-    screen.fill('dark gray')
-    draw_board()
-    draw_pieces()
-    draw_captured()
-    draw_check()
+def draw_board():
+    for row in range(BOARD_SIZE):
+        for col in range(BOARD_SIZE):
+            color = WHITE if (row + col) % 2 == 0 else GREY
+            pygame.draw.rect(screen, color, pygame.Rect(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE))
 
-    # event handling
+def draw_pieces():
+    for piece, location in zip(black_pieces, black_locations):
+        piece_image = piece_images['black_' + piece]
+        screen.blit(piece_image, (location[0] * TILE_SIZE, location[1] * TILE_SIZE))
+    for piece, location in zip(white_pieces, white_locations):
+        piece_image = piece_images['white_' + piece]
+        screen.blit(piece_image, (location[0] * TILE_SIZE, location[1] * TILE_SIZE))
+
+# Check options for both players
+black_options = check_options(black_pieces, black_locations, 'black')
+white_options = check_options(white_pieces, white_locations, 'white')
+
+# Main game loop
+running = True
+while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            run = False
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not game_over:
-            x_coord = event.pos[0] // 100
-            y_coord = event.pos[1] // 100
-            click_coords = (y_coord, x_coord)
-            # Handle piece selection and movement logic here
-            # Example: if a piece is selected, move it to the clicked position
-            # You need to implement the logic for selecting and moving pieces
+            running = False
+
+        # Handle player's move
+        if turn_step % 2 == 0:  # Player's turn (assuming player is white)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                click_coords = get_click_coords(event)
+                if click_coords in white_locations:
+                    selection = white_locations.index(click_coords)
+                    valid_moves = check_options([white_pieces[selection]], [click_coords], 'white')
+                elif click_coords in valid_moves and selection != 100:
+                    white_locations[selection] = click_coords
+                    if click_coords in black_locations:
+                        black_piece = black_locations.index(click_coords)
+                        captured_pieces_white.append(black_pieces[black_piece])
+                        if black_pieces[black_piece] == 'king':
+                            winner = 'white'
+                        black_pieces.pop(black_piece)
+                        black_locations.pop(black_piece)
+                    black_options = check_options(black_pieces, black_locations, 'black')
+                    white_options = check_options(white_pieces, white_locations, 'white')
+                    turn_step += 1
+                    selection = 100
+                    valid_moves = []
 
         if event.type == pygame.KEYDOWN and game_over:
             if event.key == pygame.K_RETURN:
-                game_over = False
-                winner = ''
-                chess_board = ChessBoard()
-                captured_pieces_white = []
-                captured_pieces_black = []
-                turn_step = 0
-                selection = 100
-                valid_moves = []
-
-    if chess_board.is_checkmate('black'):
-        winner = 'white'
-        game_over = True
-    elif chess_board.is_checkmate('white'):
-        winner = 'black'
-        game_over = True
+                # Handle game over state
+                pass
 
     if winner != '':
+        game_over = True
         draw_game_over()
+        running = False
+        continue
 
+    if turn_step % 2 == 1:  # AI's turn (assuming AI is black)
+        ai_move = pick_random_move(black_options)
+        if ai_move:
+            black_pieces, black_locations = execute_move(black_pieces, black_locations, ai_move)
+            black_options = check_options(black_pieces, black_locations, 'black')
+            white_options = check_options(white_pieces, white_locations, 'white')
+            turn_step += 1
+
+    # Draw the board and pieces
+    draw_board()
+    draw_pieces()
     pygame.display.flip()
 
 pygame.quit()
