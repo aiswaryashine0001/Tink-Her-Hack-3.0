@@ -33,10 +33,10 @@ piece_images = {
 }
 
 # Initialize piece locations
-black_locations = [(0, 7), (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7),
-                   (0, 6), (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6)]
-white_locations = [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1),
-                   (0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0)]
+black_locations = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0),
+                   (0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1)]
+white_locations = [(0, 6), (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6),
+                   (0, 7), (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7)]
 
 # Initialize piece types
 black_pieces = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'] + ['pawn'] * 8
@@ -54,12 +54,72 @@ winner = ''  # Initialize the winner variable
 game_over = False
 
 def check_options(pieces, locations, color):
-    # Placeholder implementation: return a list of random valid moves
-    # This should be replaced with actual logic to determine valid moves
     valid_moves = []
+    opponent_locations = white_locations if color == 'black' else black_locations
+
     for piece, location in zip(pieces, locations):
-        # Example: add some dummy moves for each piece
-        valid_moves.append((piece, (location[0] + 1, location[1] + 1)))
+        if piece == 'pawn':
+            direction = -1 if color == 'white' else 1
+            new_location = (location[0], location[1] + direction)
+            if 0 <= new_location[1] < BOARD_SIZE and new_location not in white_locations and new_location not in black_locations:
+                valid_moves.append((piece, new_location))
+            # Capture moves
+            for dx in [-1, 1]:
+                capture_location = (location[0] + dx, location[1] + direction)
+                if capture_location in opponent_locations:
+                    valid_moves.append((piece, capture_location))
+        elif piece == 'rook':
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                for i in range(1, BOARD_SIZE):
+                    new_location = (location[0] + dx * i, location[1] + dy * i)
+                    if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
+                        if new_location in white_locations or new_location in black_locations:
+                            if new_location in opponent_locations:
+                                valid_moves.append((piece, new_location))
+                            break
+                        valid_moves.append((piece, new_location))
+                    else:
+                        break
+        elif piece == 'knight':
+            for dx, dy in [(2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]:
+                new_location = (location[0] + dx, location[1] + dy)
+                if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
+                    if new_location not in white_locations and new_location not in black_locations:
+                        valid_moves.append((piece, new_location))
+                    elif new_location in opponent_locations:
+                        valid_moves.append((piece, new_location))
+        elif piece == 'bishop':
+            for dx, dy in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
+                for i in range(1, BOARD_SIZE):
+                    new_location = (location[0] + dx * i, location[1] + dy * i)
+                    if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
+                        if new_location in white_locations or new_location in black_locations:
+                            if new_location in opponent_locations:
+                                valid_moves.append((piece, new_location))
+                            break
+                        valid_moves.append((piece, new_location))
+                    else:
+                        break
+        elif piece == 'queen':
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
+                for i in range(1, BOARD_SIZE):
+                    new_location = (location[0] + dx * i, location[1] + dy * i)
+                    if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
+                        if new_location in white_locations or new_location in black_locations:
+                            if new_location in opponent_locations:
+                                valid_moves.append((piece, new_location))
+                            break
+                        valid_moves.append((piece, new_location))
+                    else:
+                        break
+        elif piece == 'king':
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
+                new_location = (location[0] + dx, location[1] + dy)
+                if 0 <= new_location[0] < BOARD_SIZE and 0 <= new_location[1] < BOARD_SIZE:
+                    if new_location not in white_locations and new_location not in black_locations:
+                        valid_moves.append((piece, new_location))
+                    elif new_location in opponent_locations:
+                        valid_moves.append((piece, new_location))
     return valid_moves
 
 def pick_random_move(valid_moves):
@@ -76,10 +136,9 @@ def get_click_coords(event):
 
 def execute_move(pieces, locations, move):
     piece, new_location = move
-    pieces.remove(piece)
-    pieces.append(new_location)
-    locations.remove(piece)
-    locations.append(new_location)
+    current_location = locations[pieces.index(piece)]
+    index = locations.index(current_location)
+    locations[index] = new_location
     return pieces, locations
 
 def draw_game_over():
@@ -121,7 +180,7 @@ while running:
                 if click_coords in white_locations:
                     selection = white_locations.index(click_coords)
                     valid_moves = check_options([white_pieces[selection]], [click_coords], 'white')
-                elif click_coords in valid_moves and selection != 100:
+                elif click_coords in [move[1] for move in valid_moves] and selection != 100:
                     white_locations[selection] = click_coords
                     if click_coords in black_locations:
                         black_piece = black_locations.index(click_coords)
