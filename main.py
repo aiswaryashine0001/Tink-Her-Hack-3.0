@@ -1,5 +1,5 @@
-import random
 import pygame
+from ai import is_checkmate, check_options, execute_move, pick_best_move
 
 # Initialize Pygame
 pygame.init()
@@ -33,10 +33,10 @@ piece_images = {
 }
 
 # Initialize piece locations
-black_locations = [(0, 7), (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7),
-                   (0, 6), (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6)]
-white_locations = [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1),
-                   (0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0)]
+black_locations = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0),
+                   (0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1)]
+white_locations = [(0, 6), (1, 6), (2, 6), (3, 6), (4, 6), (5, 6), (6, 6), (7, 6),
+                   (0, 7), (1, 7), (2, 7), (3, 7), (4, 7), (5, 7), (6, 7), (7, 7)]
 
 # Initialize piece types
 black_pieces = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'] + ['pawn'] * 8
@@ -53,19 +53,11 @@ valid_moves = []
 winner = ''  # Initialize the winner variable
 game_over = False
 
-def check_options(pieces, locations, color):
-    # Placeholder implementation: return a list of random valid moves
-    # This should be replaced with actual logic to determine valid moves
-    valid_moves = []
-    for piece, location in zip(pieces, locations):
-        # Example: add some dummy moves for each piece
-        valid_moves.append((piece, (location[0] + 1, location[1] + 1)))
-    return valid_moves
-
-def pick_random_move(valid_moves):
-    if valid_moves:
-        return random.choice(valid_moves)
-    return None
+# Track if kings and rooks have moved for castling
+white_king_moved = [False, False]  # [white_king_moved, black_king_moved]
+black_king_moved = [False, False]
+white_rook_moved = [[False, False], [False, False]]  # [[white_left_rook_moved, white_right_rook_moved], [black_left_rook_moved, black_right_rook_moved]]
+black_rook_moved = [[False, False], [False, False]]
 
 def get_click_coords(event):
     x, y = event.pos
@@ -74,17 +66,9 @@ def get_click_coords(event):
     grid_y = y // TILE_SIZE
     return (grid_x, grid_y)
 
-def execute_move(pieces, locations, move):
-    piece, new_location = move
-    pieces.remove(piece)
-    pieces.append(new_location)
-    locations.remove(piece)
-    locations.append(new_location)
-    return pieces, locations
-
-def draw_game_over():
+def draw_game_over(winner):
     font = pygame.font.Font(None, 74)
-    text = font.render("Game Over", True, RED)
+    text = font.render(f"Game Over: {winner} wins", True, RED)
     text_rect = text.get_rect(center=(SCREEN_SIZE // 2, SCREEN_SIZE // 2))
     screen.blit(text, text_rect)
     pygame.display.flip()
@@ -103,9 +87,21 @@ def draw_pieces():
         piece_image = piece_images['white_' + piece]
         screen.blit(piece_image, (location[0] * TILE_SIZE, location[1] * TILE_SIZE))
 
-# Check options for both players
-black_options = check_options(black_pieces, black_locations, 'black')
-white_options = check_options(white_pieces, white_locations, 'white')
+def update_castling_status(piece, color, start_pos, end_pos):
+    if piece == 'king' and color == 'white':
+        white_king_moved[0] = True
+    if piece == 'king' and color == 'black':
+        black_king_moved[0] = True
+    if piece == 'rook' and color == 'white':
+        if start_pos == (0, 7):  # Right rook
+            white_rook_moved[0][1] = True
+        if start_pos == (0, 0):  # Left rook
+            white_rook_moved[0][0] = True
+    if piece == 'rook' and color == 'black':
+        if start_pos == (7, 0):  # Left rook
+            black_rook_moved[0][0] = True
+        if start_pos == (7, 7):  # Right rook
+            black_rook_moved[0][1] = True
 
 # Main game loop
 running = True
@@ -120,8 +116,8 @@ while running:
                 click_coords = get_click_coords(event)
                 if click_coords in white_locations:
                     selection = white_locations.index(click_coords)
-                    valid_moves = check_options([white_pieces[selection]], [click_coords], 'white')
-                elif click_coords in valid_moves and selection != 100:
+                    valid_moves = check_options([white_pieces[selection]], [click_coords], 'white', black_pieces, black_locations, white_king_moved, white_rook_moved)
+                elif click_coords in [move[1] for move in valid_moves] and selection != 100:
                     white_locations[selection] = click_coords
                     if click_coords in black_locations:
                         black_piece = black_locations.index(click_coords)
@@ -130,8 +126,9 @@ while running:
                             winner = 'white'
                         black_pieces.pop(black_piece)
                         black_locations.pop(black_piece)
-                    black_options = check_options(black_pieces, black_locations, 'black')
-                    white_options = check_options(white_pieces, white_locations, 'white')
+                    update_castling_status(white_pieces[selection], 'white', white_locations[selection], click_coords)
+                    black_options = check_options(black_pieces, black_locations, 'black', white_pieces, white_locations, black_king_moved, black_rook_moved)
+                    white_options = check_options(white_pieces, white_locations, 'white', black_pieces, black_locations, white_king_moved, white_rook_moved)
                     turn_step += 1
                     selection = 100
                     valid_moves = []
@@ -143,16 +140,16 @@ while running:
 
     if winner != '':
         game_over = True
-        draw_game_over()
+        draw_game_over(winner)
         running = False
         continue
 
     if turn_step % 2 == 1:  # AI's turn (assuming AI is black)
-        ai_move = pick_random_move(black_options)
+        ai_move = pick_best_move(black_pieces, black_locations, 'black', white_pieces, white_locations, black_king_moved, black_rook_moved)
         if ai_move:
-            black_pieces, black_locations = execute_move(black_pieces, black_locations, ai_move)
-            black_options = check_options(black_pieces, black_locations, 'black')
-            white_options = check_options(white_pieces, white_locations, 'white')
+            black_pieces, black_locations = execute_move(black_pieces, black_locations, ai_move, 'black', black_king_moved, black_rook_moved)
+            black_options = check_options(black_pieces, black_locations, 'black', white_pieces, white_locations, black_king_moved, black_rook_moved)
+            white_options = check_options(white_pieces, white_locations, 'white', black_pieces, black_locations, white_king_moved, white_rook_moved)
             turn_step += 1
 
     # Draw the board and pieces
