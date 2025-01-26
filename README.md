@@ -39,7 +39,7 @@ For Hardware:
 ### Implementation
 For Software:
 # Installation
-1) pip install pygame
+pip install pygame
 
 # Run
 cd your directory
@@ -49,12 +49,14 @@ python main.py
 For Software:
 
 # Screenshots (Add at least 3)
+https://drive.google.com/drive/folders/1I_E5NUDCyYlPYxaj5DbjNGTrHbMXroQt
 
 # Diagrams
+https://drive.google.com/drive/folders/1I_E5NUDCyYlPYxaj5DbjNGTrHbMXroQt
 
 ### Project Demo
 # Video
-
+https://drive.google.com/drive/folders/1I_E5NUDCyYlPYxaj5DbjNGTrHbMXroQt
 
 
 ## Team Contributions
