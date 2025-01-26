@@ -60,7 +60,7 @@ https://drive.google.com/drive/folders/1I_E5NUDCyYlPYxaj5DbjNGTrHbMXroQt
 
 
 ## Team Contributions
-- Aiswarya Shine: Build mimmax pruning algorithm
+- Aiswarya Shine: Build together mimmax pruning algorithm
 - Athira Francis: Familiarization ans rules of chess
 
 ---
