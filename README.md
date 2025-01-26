@@ -3,7 +3,7 @@
 
 ## Overview
 
-The Chess Engine project is a simplified, yet powerful chess game engine that implements basic chess rules and advanced features like check and checkmate detection, move generation, and artificial intelligence (AI) for evaluating board positions and selecting optimal moves. The engine uses a combination of the minimax algorithm with alpha-beta pruning for decision-making, helping simulate gameplay for players and providing AI-based moves.
+The Chess Engine project is a simplified chess game engine that implements basic chess rules and advanced features like check and checkmate detection, move generation, and artificial intelligence (AI) for evaluating board positions and selecting optimal moves. The engine uses a combination of the minimax algorithm with alpha-beta pruning for decision-making, helping simulate gameplay for players and providing AI-based moves.
 
 ## Features
 
