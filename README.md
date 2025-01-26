@@ -1,4 +1,4 @@
-# [Project Name] 🎯
+# ChessAI 🎯
 
 
 ## Basic Details
@@ -49,24 +49,12 @@ python main.py
 For Software:
 
 # Screenshots (Add at least 3)
-![Screenshot1](images/Screenshot 1.png)
-*Screenshot 1: This shows the initial setup of the chess game board.*
-
-![Screenshot2](images/Screenshot 2.png)
-*Screenshot 2: This displays the move options for the selected piece.*
-
-![Screenshot3](images/Screenshot 3.png)
-*Screenshot 3: This shows the game in progress, with pieces actively moving.*
-
 
 # Diagrams
-![Workflow](Add your workflow/architecture diagram here)
-*Add caption explaining your workflow*
 
 ### Project Demo
 # Video
-[Add your demo video link here]
-*Explain what the video demonstrates*
+
 
 
 ## Team Contributions
